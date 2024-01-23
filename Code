@@ -1,0 +1,107 @@
+update.packages()
+house_train<-MIS470HousingTraining_1000x25_
+house_test<-MIS470housingtesting_460x25_
+summary(house_train)
+sd(house_train$SalePrice)
+hist(house_train$SalePrice, 
+     col = "red",
+     main = "Histogram of Sale Price",
+     xlab = "Sale Price",
+     ylab = "Frequency",
+     xlim = c(0, 1000000))
+
+combined_house <- rbind(house_test, house_train)
+print(combined_house)
+install.packages("ggplot2")
+install.packages("scales")
+my_data <- data.frame(combined_house$SalePrice = rlnorm(100, meanlog = 12, sdlog = 0.5))
+gg <- ggplot(my_data, aes(x = SalePrice)) +
+  geom_histogram(breaks = seq(0, 1000000, by = 50000), fill = "red", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Combined Data Sale Price", x = "Sale Price", y = "Frequency") +
+  scale_x_continuous(labels = scales::dollar_format())
+print(gg)
+summary(combined_house$SalePrice)     
+sd(combined_house$SalePrice)
+price_model<-lm(SalePrice~LotFrontage+LotArea+OverallQual+OverallCond+YearBuilt+YearRemodAdd+MasVnrArea+TotalBsmtSF+GrLivArea+FullBath+HalfBath+BedroomAbvGr+KitchenAbvGr+TotRmsAbvGrd+Fireplaces+GarageYrBlt+GarageCars+GarageArea+WoodDeckSF+OpenPorchSF+MoSold+YrSold, data = house_train)
+test_subset <- head(house_test, 20)
+summary(test_subset)
+sd(test_subset)
+numeric_vars <- c("LotFrontage", "MasVnrArea", "GarageYrBlt")
+house_train[numeric_vars] <- lapply(house_train[numeric_vars], as.numeric)
+price_model<-lm(SalePrice~LotFrontage+LotArea+OverallQual+OverallCond+YearBuilt+YearRemodAdd+MasVnrArea+TotalBsmtSF+GrLivArea+FullBath+HalfBath+BedroomAbvGr+KitchenAbvGr+TotRmsAbvGrd+Fireplaces+GarageYrBlt+GarageCars+GarageArea+WoodDeckSF+OpenPorchSF+MoSold+YrSold, data = house_train)
+test_subset[numeric_vars] <- lapply(test_subset[numeric_vars], function(x) ifelse(is.na(x), mean(x, na.rm = TRUE), x))
+test_subset[numeric_vars] <- lapply(test_subset[numeric_vars], as.numeric)
+predicted_prices <- predict(price_model, newdata = test_subset)
+print(predicted_prices)
+print(test_subset$SalePrice)
+predictedvsactual<-(predicted_prices-test_subset$SalePrice)
+print(predictedvsactual)
+date()
+MAPE<-mean(abs(100*predictedvsactual/test_subset$SalePrice))
+MAPE
+date()
+new_price_model<-lm(SalePrice~OverallQual+YearBuilt+YearRemodAdd+TotalBsmtSF+GrLivArea+FullBath+TotRmsAbvGrd+GarageCars+GarageArea, data = house_train)
+summary(new_price_model)
+date()
+newprediction<-predict(new_price_model, test_subset)
+print(newprediction)
+date()
+newpricedifference<-test_subset$SalePrice - newprediction
+MAPE2<-mean(abs(100*newpricedifference/test_subset$SalePrice))
+MAPE2
+date()
+coef_test <- summary(price_model)$coefficients[, c("t value", "Pr(>|t|)")]
+date()
+summary_model <- summary(price_model)
+coefficients_table <- summary_model$coefficients
+significant_coefficients <- coefficients_table[coefficients_table[, "Pr(>|t|)"] < 0.05, ]
+print(significant_coefficients)
+date()
+f_test <- summary(price_model)$fstatistic
+print(f_test)
+date()
+t_value <- summary(price_model)$coefficients["LotFrontage104", "t value"]
+p_value <- summary(price_model)$coefficients["LotFrontage104", "Pr(>|t|)"]
+if (p_value < 0.05) {
+  print("Reject the null hypothesis; there is a significant effect.")
+} else {
+  print("Fail to reject the null hypothesis; there is no significant effect.")
+}
+date()
+house_train<-MIS470HousingTraining_1000x25_
+house_test<-MIS470housingtesting_460x25_
+install.packages("randomForest")
+library(randomForest)
+set.seed(123)
+rf_model<-randomForest(SalePrice~ ., data = house_train)
+predictions <- predict(rf_model, newdata = house_test)
+print(predictions)
+difference<-test_subset$SalePrice-predictions
+print(difference)
+absdifference<-abs(difference)
+summary(absdifference)
+library(dplyr)
+library(tidyr)
+library(scales)
+houses <- 1:20
+predicted_prices <- c(84682.68,  89609.66, 257107.26, 155386.22, 191949.01, 128911.55, 170612.10,  88705.24, 235741.54, 125104.42, 132913.05, 125800.81, 145388.00, 109792.00, 133462.89, 220091.61, 213677.86, 207610.07, 175790.49, 192482.92)
+actual_prices <- c(82000.00, 86000.00, 232000.00, 136905.00, 181000.00, 149900.00, 163500.00, 88000.00, 240000.00, 102000.00, 135000.00, 100000.00, 165000.00, 85000.00, 119200.00, 227000.00, 203000.00, 187500.00, 160000.00, 213490.00)
+df <- data.frame(Houses = houses, Predicted_Prices = predicted_prices, Actual_Prices = actual_prices)
+df_long <- df %>%
+  pivot_longer(cols = c("Predicted_Prices", "Actual_Prices"), names_to = "Legend", values_to = "Prices")
+
+ggplot(df_long, aes(x = factor(Houses), y = Prices, fill = Legend)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Random Forest Predicted vs Actual Prices",
+       x = "Houses",
+       y = "Prices x 1000") +
+  scale_fill_manual(values = c("Predicted_Prices" = "blue", "Actual_Prices" = "red")) +
+  theme_minimal() +
+  scale_y_continuous(labels = scales::dollar_format(scale = 0.001))
+MAPE2<-mean(abs(100*difference/test_subset$SalePrice))
+MAPE2
+date()
+summary(rf_model)
+rsquared <- 1 - (sum(house_test$SalePrice - predictions)^2) / sum((house_test$SalePrice - mean(house_test$SalePrice))^2)
+print(rsquared)
+date()
